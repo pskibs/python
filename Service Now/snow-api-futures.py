@@ -305,9 +305,12 @@ def staging_for_servicenow(dframe):
     pickle.dump(data_json, json_pickle_dump)
     json_pickle_dump.close()
     post_to_servicenow_jsonv2(data_json)
-    
+
+
+# Post to Service_Now with JSONv2 Web Services
 def post_to_servicenow_jsonv2(json_records):
-     # Set the request parameters
+
+    # Set the request parameters
     url = 'https://dev13758.service-now.com/api/now/table/u_snow_computers'
     
     # Eg. User name="admin", Password="admin" for this code sample.
@@ -320,6 +323,7 @@ def post_to_servicenow_jsonv2(json_records):
     response = SNSESSION.post(ut,data=json_records)
     print(response.content)
     print('Posting Computer:')
+
     # Check for HTTP codes other than 200
     if response.status_code != 200: 
         print('Error')
@@ -327,7 +331,7 @@ def post_to_servicenow_jsonv2(json_records):
         pass   
     
     
-    
+# This is the main function
 def main():
     test_all_items_futures('computers')
 main()
