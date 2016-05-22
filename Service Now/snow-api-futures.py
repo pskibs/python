@@ -1,0 +1,348 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Apr 20 15:02:40 2016
+
+@author: parker
+
+
+"""
+
+
+import requests
+import pandas as pd
+import pickle
+
+
+import multiprocessing as mp
+import time
+import os
+import configparser
+import concurrent.futures
+import json as JS
+config = configparser.ConfigParser()
+
+config.read('config.ini')
+
+
+'''
+GLOBALS
+'''
+#SNCOMPURL = 'https://dev18580.service-now.com/api/now/table/u_snow_computers'
+#SNAUTH = ('admin','')
+print(config['SLM']['ssl'])
+
+if str(config['SLM']['ssl']) == 'true':
+    HT = 'https://'
+else:
+    HT = 'http://'
+
+headers_s={"User-Agent":"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.120 Safari/537.36"}
+
+APIUSER = config['SLM']['apiuser']
+APIPASS = config['SLM']['apipwd']
+APIAUTH = (APIUSER,APIPASS)
+CID = config['SLM']['cid']
+
+SNUSER = config['ServiceNow']['user']
+SNPASS = config['ServiceNow']['password']
+SNINST = config['ServiceNow']['instance']
+SNAUTH = (SNUSER,SNPASS)
+
+
+SNSESSION = requests.Session()
+SNSESSION.auth = SNAUTH
+SNSESSION.headers = {"Content-Type":"application/json","Accept":"application/json"}
+
+#https://mysam1-noram.softwareone.com/api
+SLMHOST = config['SLM']['hostname']
+
+SLMSESSION = requests.Session()
+SLMSESSION.auth = APIAUTH
+SLMSESSION.headers.update = headers_s
+
+'''
+URI GEN MACHINE
+'''
+
+
+def newurlgen(url):
+    if '$skip' in url:
+        skip_pos = [pos for pos in range(len(url)) if url[pos:].startswith('$skip')]
+        skip_prep = url[skip_pos[0]:]
+        skip_old = int(skip_prep.replace('$skip=',''))
+        skip_new = int(skip_old + 100)
+        newurl = url.replace(str(skip_old),str(skip_new))
+        return newurl
+        
+#        if url[-9:-4] == '$skip' or:
+#            oldskip = int(url[-3:])
+#            newskip = str(str(url[:-3]) + str(int((oldskip + 100))))
+#            return newskip
+    else:
+        return str(str(url) + str('&$skip=100'))
+
+def genuriAPPlistJSON(url, nrange):
+    id_list = []
+    print("Started Genurilist")    
+    first_list = getAPPitemsJSON(url)
+    try:
+        id_list = id_list + first_list
+    except:
+        id_list = first_list
+    newurl = newurlgen(url)
+    more_items = True
+    while more_items:
+        x = getAPPitemsJSON(newurl)
+        if x == None:
+            print("NO MORE VALUES")
+            
+            more_items = False
+        else:
+            
+            id_list = id_list + x
+            newurl = newurlgen(newurl)
+#            print(len(id_list))
+    f = open('SnowData/idlist'+str(nrange)+'.pickle','wb')
+    pickle.dump(id_list, f)
+    f.close()    
+    return id_list
+
+def genurilistJSON(url, nrange):
+    id_list = []
+    print("Started Genurilist")    
+    first_list = getiditemsJSON(url)
+    try:
+        id_list = id_list + first_list
+    except:
+        id_list = first_list
+    newurl = newurlgen(url)
+    more_items = True
+    while more_items:
+        x = getiditemsJSON(newurl)
+        if x == None:
+            print("NO MORE VALUES")
+            
+            more_items = False
+        else:
+            
+            id_list = id_list + x
+            newurl = newurlgen(newurl)
+#            print(len(id_list))
+    f = open('SnowData/idlist'+str(nrange)+'.pickle','wb')
+    pickle.dump(id_list, f)
+    f.close()    
+    return id_list
+    
+def getPageJSON(uri):
+    print('Getting {} ...'.format(uri))
+    requestJSON = SLMSESSION.get(uri)
+    data_dict = requestJSON.json()
+    print('Here is the text:\n', requestJSON.text)
+#    print('Here is the JSON: \n',data_dict)
+        
+def getInlineCountJSON(pages):
+    uri = HT+SLMHOST+'/api/customers/'+CID+'/'+pages+'/?$inlinecount=allpages&$format=json'
+    print(uri)
+    requestJSON = SLMSESSION.get(uri)
+
+    data_dict = requestJSON.json()
+    pan = pd.DataFrame(data_dict['Meta'])
+
+    pls = pan.loc[pan['Name']== 'Count']
+    return int(pls["Value"].values[0])
+    
+def getFInlineCountJSON(urlinput):
+    uri = urlinput+'/?$inlinecount=allpages&$format=json'
+    print(uri)
+    requestJSON = SLMSESSION.get(uri)
+
+    data_dict = requestJSON.json()
+    pan = pd.DataFrame(data_dict['Meta'])
+
+    pls = pan.loc[pan['Name']== 'Count']
+    return int(pls["Value"].values[0])
+
+def getIdItemsJSONPandas(url):
+    pass
+    
+
+
+def getAPPitemsJSON(url):
+    try:
+        print("Starting Get ID Items")
+        print(url)
+        df = pd.DataFrame(reqBodyJSON(url))
+        
+        return ((pd.DataFrame(df['Body'].tolist()))['Name'].tolist())
+    except:
+        print("##### End of IDs #####")
+        print(url)
+        pass
+    
+def getiditemsJSON(url):
+    try:
+        print("Starting Get ID Items")
+        print(url)
+        df = pd.DataFrame(reqBodyJSON(url))
+        
+        return ((pd.DataFrame(df['Body'].tolist()))['Id'].tolist())
+    except:
+        print("##### End of IDs #####")
+        print(url)
+        pass
+'''
+URL STUFF
+'''
+
+def urlgen(url, params):
+    urllist = []
+    urllist.append(url)
+    for x in params:
+        urllist.append(x)
+    
+    return str(str('/'.join(urllist))+'/').rstrip('/')
+
+def host_urlgen(hostname, params):
+    base_string = (str(HT+'{}/api/customers/'+CID).format(hostname))
+    return urlgen(base_string, params)
+'''
+JSON STUFF
+'''
+def reqJSON(uri):
+    requestJSON = SLMSESSION.get(uri)
+    data_dict = requestJSON.json()
+    return data_dict
+
+
+def reqBodyJSON(uri):
+    start_time = time.time()
+
+    requestJSON = SLMSESSION.get(uri)
+    data_dict = requestJSON.json()
+    print('took ',str(time.time() - start_time), 'to pull body')
+    return data_dict['Body']
+
+def reqComputerBodyJSON(uri):
+    start_time = time.time()
+
+    requestJSON = SLMSESSION.get(uri)
+    data_dict = requestJSON.json()
+    print('took ',str(time.time() - start_time), 'to pull body')
+    data = data_dict['Body']
+    appcnt = getFInlineCountJSON(str(uri.replace('/?$format=json','')+'/applications'))
+    app_uri = genurilistJSON(str(uri.replace('/?$format=json','')+'/applications/?$format=json'), appcnt)
+    print(appcnt)
+    data['Applications'] = app_uri
+    return pd.Series(data)
+    
+
+
+
+
+def iterpagesJSONFutures(url_list,pages):
+    series_list = []
+    if pages == 'computers':
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+    
+            future_to_url = {executor.submit(reqComputerBodyJSON, url): url for url in url_list}
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    data = future.result()
+                    
+                    series_list.append(data)
+                except Exception as exc:
+                    print(url)
+                    print(exc)
+                else:
+                    print('comment')
+        return pd.DataFrame(series_list)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+    
+            future_to_url = {executor.submit(reqBodyJSON, url): url for url in url_list}
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    data = future.result()
+                    
+                    series_list.append(pd.Series(data))
+                except Exception as exc:
+                    print(url)
+                    print(exc)
+                else:
+                    print('comment')
+        return pd.DataFrame(series_list)
+
+def url_reap(pages, item_list):
+    st = time.time()
+    newrl = str(HT+SLMHOST+'/api/customers/'+CID+'/'+pages)
+    return [str(newrl+'/'+str(nuri)+'/?$format=json') for nuri in item_list]
+    
+    
+def test_all_items_futures(pages):
+    st= time.time()
+    cmpcnt = getInlineCountJSON(pages)
+    cmp_url = host_urlgen(SLMHOST, [pages,'?$format=json'])
+    cmpuri = genurilistJSON(cmp_url, cmpcnt)
+    urls = url_reap(pages, cmpuri)
+    comps = iterpagesJSONFutures(urls,pages)
+    comps.to_pickle('SnowData/'+str(pages)+'.pickle')
+    print('TOOK ',str(time.time()-st),'to finish futures grab')
+    print(comps.head(5))
+    staging_for_servicenow(comps)
+
+
+def staging_for_servicenow(dframe):
+    rl = []
+    for x in dframe[['Name','Manufacturer','OperatingSystem','IpAddresses']].itertuples():
+        rd = {}
+        host = x[1]
+        man = x[2]
+        os = x[3]
+        if not x[4]:
+            ip = '0.0.0.0'
+        else:
+            ip = (x[4])[0]
+        print(host,man,os,ip)
+        rd['name'] = host
+        rd['ip_address'] = ip
+        rd['manufacturer'] = man
+        rd['os'] = 'Windows'
+        rl.append(rd)
+    djson = JS.dumps({"records":rl})
+    jdu = open('jsondump.pickle','wb')
+    pickle.dump(djson, jdu)
+    jdu.close()
+    post_to_servicenow(djson)
+    post_to_servicenow(host,man,os,ip)           
+    
+def post_to_servicenow(jduz):
+     # Set the request parameters
+    url = 'https://dev13758.service-now.com/api/now/table/u_snow_computers'
+    
+    # Eg. User name="admin", Password="admin" for this code sample.
+    user = 'admin'
+    pwd = 'Password'
+    
+    # Set proper headers    
+    # Do the HTTP request
+    ut = 'https://dev13758.service-now.com/u_snow_computers.do?JSONv2&sysparm_action=insertMultiple'
+    da = JS.dumps({"records":[{"name":"parker","ip_address":"0.0.0.0"},{"name":"Jake","ip_address":"0.0.0.0"}]})
+    response = SNSESSION.post(ut,data=jduz)
+    print(response.content)
+
+#    response = SNSESSION.post(url,data=str("{'name':'{}','manufacturer':'XX','os':'YYY','ip_address':'ZZZ'}").replace('{}',host).replace('XX',manufacturer).replace('YYY',os).replace('ZZZ',ip))
+    print('Posting Computer:')
+    # Check for HTTP codes other than 200
+    if response.status_code != 200: 
+        print('Error')
+        print(response.content)
+        pass   
+    
+    
+    
+def main():
+    test_all_items_futures('computers')
+    post_to_servicenow('a','b','c','d')
+main()
