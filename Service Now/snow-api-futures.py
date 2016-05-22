@@ -291,9 +291,9 @@ def test_all_items_futures(pages):
 
 
 def staging_for_servicenow(dframe):
-    rl = []
+    record_list = []
     for x in dframe[['Name','Manufacturer','OperatingSystem','IpAddresses']].itertuples():
-        rd = {}
+        record_dictionary = {}
         host = x[1]
         man = x[2]
         os = x[3]
@@ -302,19 +302,18 @@ def staging_for_servicenow(dframe):
         else:
             ip = (x[4])[0]
         print(host,man,os,ip)
-        rd['name'] = host
-        rd['ip_address'] = ip
-        rd['manufacturer'] = man
-        rd['os'] = 'Windows'
-        rl.append(rd)
-    djson = JS.dumps({"records":rl})
-    jdu = open('jsondump.pickle','wb')
-    pickle.dump(djson, jdu)
-    jdu.close()
-    post_to_servicenow(djson)
-    post_to_servicenow(host,man,os,ip)           
+        record_dictionary['name'] = host
+        record_dictionary['ip_address'] = ip
+        record_dictionary['manufacturer'] = man
+        record_dictionary['os'] = 'Windows'
+        record_list.append(record_dictionary)
+    data_json = JS.dumps({"records":record_list})
+    json_pickle_dump = open('jsondump.pickle','wb')
+    pickle.dump(data_json, json_pickle_dump)
+    json_pickle_dump.close()
+    post_to_servicenow_jsonv2(data_json)
     
-def post_to_servicenow(jduz):
+def post_to_servicenow_jsonv2(json_records):
      # Set the request parameters
     url = 'https://dev13758.service-now.com/api/now/table/u_snow_computers'
     
@@ -325,11 +324,8 @@ def post_to_servicenow(jduz):
     # Set proper headers    
     # Do the HTTP request
     ut = 'https://dev13758.service-now.com/u_snow_computers.do?JSONv2&sysparm_action=insertMultiple'
-    da = JS.dumps({"records":[{"name":"parker","ip_address":"0.0.0.0"},{"name":"Jake","ip_address":"0.0.0.0"}]})
-    response = SNSESSION.post(ut,data=jduz)
+    response = SNSESSION.post(ut,data=json_records)
     print(response.content)
-
-#    response = SNSESSION.post(url,data=str("{'name':'{}','manufacturer':'XX','os':'YYY','ip_address':'ZZZ'}").replace('{}',host).replace('XX',manufacturer).replace('YYY',os).replace('ZZZ',ip))
     print('Posting Computer:')
     # Check for HTTP codes other than 200
     if response.status_code != 200: 
