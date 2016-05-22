@@ -35,7 +35,8 @@ if str(config['SLM']['ssl']) == 'true':
 else:
     HT = 'http://'
 
-headers_s={"User-Agent":"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.120 Safari/537.36"}
+headers_string={"User-Agent":"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) \
+Chrome/37.0.2062.120 Safari/537.36"}
 
 APIUSER = config['SLM']['apiuser']
 APIPASS = config['SLM']['apipwd']
@@ -52,7 +53,6 @@ SNSESSION = requests.Session()
 SNSESSION.auth = SNAUTH
 SNSESSION.headers = {"Content-Type":"application/json","Accept":"application/json"}
 
-#https://mysam1-noram.softwareone.com/api
 SLMHOST = config['SLM']['hostname']
 
 SLMSESSION = requests.Session()
@@ -63,7 +63,8 @@ SLMSESSION.headers.update = headers_s
 URI GEN MACHINE
 '''
 
-#This function keeps adding 100 more items to pages
+
+# This function keeps adding 100 more items to pages
 def newurlgen(url):
     if '$skip' in url:
         skip_pos = [pos for pos in range(len(url)) if url[pos:].startswith('$skip')]
@@ -75,7 +76,8 @@ def newurlgen(url):
     else:
         return str(str(url) + str('&$skip=100'))
 
-#This generates a application Name List
+
+# This generates a application Name List
 def genuriAPPlistJSON(url, nrange):
     id_list = []
     print("Started Genurilist")    
@@ -102,7 +104,8 @@ def genuriAPPlistJSON(url, nrange):
     f.close()    
     return id_list
 
-#Generates URL List
+
+# Generates URL List
 def genurilistJSON(url, nrange):
     id_list = []
     print("Started Genurilist")    
@@ -129,14 +132,8 @@ def genurilistJSON(url, nrange):
     f.close()    
     return id_list
 
-#Get Page for API
-def getPageJSON(uri):
-    print('Getting {} ...'.format(uri))
-    requestJSON = SLMSESSION.get(uri)
-    data_dict = requestJSON.json()
-    print('Here is the text:\n', requestJSON.text)
-#    print('Here is the JSON: \n',data_dict)
-        
+
+#   Get the In line count
 def getInlineCountJSON(pages):
     uri = HT+SLMHOST+'/api/customers/'+CID+'/'+pages+'/?$inlinecount=allpages&$format=json'
     print(uri)
@@ -147,7 +144,8 @@ def getInlineCountJSON(pages):
 
     pls = pan.loc[pan['Name']== 'Count']
     return int(pls["Value"].values[0])
-    
+
+
 def getFInlineCountJSON(urlinput):
     uri = urlinput+'/?$inlinecount=allpages&$format=json'
     print(uri)
@@ -162,7 +160,6 @@ def getFInlineCountJSON(urlinput):
 def getIdItemsJSONPandas(url):
     pass
     
-
 
 def getAPPitemsJSON(url):
     try:
@@ -231,9 +228,6 @@ def reqComputerBodyJSON(uri):
     print(appcnt)
     data['Applications'] = app_uri
     return pd.Series(data)
-    
-
-
 
 
 def iterpagesJSONFutures(url_list,pages):
@@ -272,7 +266,6 @@ def iterpagesJSONFutures(url_list,pages):
         return pd.DataFrame(series_list)
 
 def url_reap(pages, item_list):
-    st = time.time()
     newrl = str(HT+SLMHOST+'/api/customers/'+CID+'/'+pages)
     return [str(newrl+'/'+str(nuri)+'/?$format=json') for nuri in item_list]
     
@@ -337,5 +330,4 @@ def post_to_servicenow_jsonv2(json_records):
     
 def main():
     test_all_items_futures('computers')
-    post_to_servicenow('a','b','c','d')
 main()
