@@ -6,7 +6,7 @@ Created on Wed Apr 20 15:02:40 2016
 
 
 """
-
+__author__ = 'Parker Skiba'
 
 import requests
 import pandas as pd
@@ -25,10 +25,9 @@ config.read('config.ini')
 
 
 '''
-GLOBALS
+GLOBALS Adding all the global variables
 '''
-#SNCOMPURL = 'https://dev18580.service-now.com/api/now/table/u_snow_computers'
-#SNAUTH = ('admin','')
+
 print(config['SLM']['ssl'])
 
 if str(config['SLM']['ssl']) == 'true':
@@ -64,7 +63,7 @@ SLMSESSION.headers.update = headers_s
 URI GEN MACHINE
 '''
 
-
+#This function keeps adding 100 more items to pages
 def newurlgen(url):
     if '$skip' in url:
         skip_pos = [pos for pos in range(len(url)) if url[pos:].startswith('$skip')]
@@ -73,14 +72,10 @@ def newurlgen(url):
         skip_new = int(skip_old + 100)
         newurl = url.replace(str(skip_old),str(skip_new))
         return newurl
-        
-#        if url[-9:-4] == '$skip' or:
-#            oldskip = int(url[-3:])
-#            newskip = str(str(url[:-3]) + str(int((oldskip + 100))))
-#            return newskip
     else:
         return str(str(url) + str('&$skip=100'))
 
+#This generates a application Name List
 def genuriAPPlistJSON(url, nrange):
     id_list = []
     print("Started Genurilist")    
@@ -107,6 +102,7 @@ def genuriAPPlistJSON(url, nrange):
     f.close()    
     return id_list
 
+#Generates URL List
 def genurilistJSON(url, nrange):
     id_list = []
     print("Started Genurilist")    
@@ -132,7 +128,8 @@ def genurilistJSON(url, nrange):
     pickle.dump(id_list, f)
     f.close()    
     return id_list
-    
+
+#Get Page for API
 def getPageJSON(uri):
     print('Getting {} ...'.format(uri))
     requestJSON = SLMSESSION.get(uri)
