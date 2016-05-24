@@ -301,7 +301,20 @@ def generate_clients(df, groupname):
     return (clientlist)
 
 
-# Main program fucntion
+#   Export Clients to Files
+def export_clients(clients):
+    directory = "SnowXML"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    for client in clients:
+        xml = build_snowXML(client)
+        fxml = retFXML(xml)
+        printFXML(xml)
+        export_XMLFile(fxml, str(r'SnowXML/' + str(client.properties['hostname'])))
+
+
+#   Main Program Fucntion
 def main():
     # Path to CSV File
     csvpath = 'sds.csv'
@@ -314,29 +327,18 @@ def main():
     print()
     printsep()
 
+    #Get the nnumber of lients
     print(get_client_number(df, groupmap))
-    printsep()
-    clients = generate_clients(df, groupmap)
-    # test = dict(clients[0].applications[0])
-    # for k,v in test.items():
-    # print(k,v)
-    directory = "SnowXML"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
 
-    for client in clients:
-        xml = build_snowXML(client)
-        fxml = retFXML(xml)
-        export_XMLFile(fxml, str(r'SnowXML/' + str(client.properties['hostname'])))
+    # Print Separators
+    printsep()
+
+    # Get a list of the Clients
+    clients = generate_clients(df, groupmap)
+    export_clients(clients)
+
 
     print("FINISHED")
-
-
-    # Print Results
-    # printFXML(test1)
-
-    # Export to file!
-    # export_xmlFile(retFXML(test1), cltest.properties['hostname'])
 
 
 main()
