@@ -7,6 +7,7 @@ Created on Sun Mar 20 11:25:01 2016
 import pandas as pd
 from collections import OrderedDict
 from lxml import etree as et
+import concurrent.futures
 
 import os
 
@@ -301,28 +302,48 @@ def generate_clients(df, groupname):
     return (clientlist)
 
 
+#  Async Function for Multithreading
+def offload_async(client):
+    xml = build_snowXML(client)
+
+    fxml = retFXML(xml)
+    # printFXML(xml)
+    print("---Generating XML---")
+    export_XMLFile(fxml, str(r'SnowXMLAS/' + str(client.properties['hostname'])))
+
+
 #   Export Clients to Files
-def export_clients(clients):
+def export_clients(clients, nthread):
     directory = "SnowXML"
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    for client in clients:
-        xml = build_snowXML(client)
-        fxml = retFXML(xml)
-        printFXML(xml)
-        export_XMLFile(fxml, str(r'SnowXML/' + str(client.properties['hostname'])))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=nthread) as executor:
+
+        future_to_xml = {executor.submit(offload_async, client): client for client in clients}
+        for future in concurrent.futures.as_completed(future_to_xml):
+            xml = future_to_xml[future]
+            try:
+                data = future.result()
+                print("GeneratedXML")
+            except Exception as exc:
+                # print(url)
+                print(exc)
+            else:
+                print('GXML')
 
 
 #   Main Program Fucntion
 def main():
     # Path to CSV File
-    csvpath = 'sds.csv'
+    # csvpath = 'sds.csv'
 
     #
-    groupmap = 'ComputerName'
+    groupmap = 'Hostname'
 
-    df = pd.read_csv(csvpath)
+    #make a datasource
+    df = pd.DataFrame()
+    print(df.head(5))
 
     print()
     printsep()
@@ -335,7 +356,7 @@ def main():
 
     # Get a list of the Clients
     clients = generate_clients(df, groupmap)
-    export_clients(clients)
+    export_clients(clients, 20)
 
 
     print("FINISHED")

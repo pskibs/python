@@ -230,7 +230,7 @@ def reqComputerBodyJSON(uri):
     return pd.Series(data)
 
 
-def iterpagesJSONFutures(url_list,pages):
+def iterpagesJSONFutures(url_list, pages):
     series_list = []
     if pages == 'computers':
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
