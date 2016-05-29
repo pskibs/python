@@ -333,22 +333,22 @@ def export_clients(clients, nthread):
                 print('GXML')
 
 
-#   Main Program Fucntion
+#   Main Program Function
 def main():
     # Path to CSV File
     # csvpath = 'sds.csv'
 
-    #
+
     groupmap = 'Hostname'
 
-    #make a datasource
+    # Make a data source
     df = pd.DataFrame()
     print(df.head(5))
 
     print()
     printsep()
 
-    #Get the nnumber of lients
+    #Get the number of clients
     print(get_client_number(df, groupmap))
 
     # Print Separators
