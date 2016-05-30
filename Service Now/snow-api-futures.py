@@ -294,25 +294,35 @@ def check_for_snowdata_folder():
     
     
 def test_all_items_futures(pages):
-    st= time.time()
+    # st= time.time()
+    #
+    # # Make directory if one doesnt exist for SnowData
+    # check_for_snowdata_folder()
+    #
+    # # Run Functions to recieve Snow Api Data
+    # cmpcnt = getInlineCountJSON(pages)
+    # cmp_url = host_urlgen(SLMHOST, [pages,'?$format=json'])
+    # cmpuri = genurilistJSON(cmp_url, cmpcnt)
+    # urls = url_reap(pages, cmpuri)
+    # comps = iterpagesJSONFutures(urls,pages)
+    #
+    # # time_stamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    #
+    # comps.to_pickle('SnowData/'+str(pages)+'.pickle')
 
-    # Make directory if one doesnt exist for SnowData
-    check_for_snowdata_folder()
+    comps_static = pd.read_pickle('SnowData/computers.pickle')
+    print(len(comps_static))
+    computer_staging_for_servicenow(comps_static)
 
-    # Run Functions to recieve Snow Api Data
-    cmpcnt = getInlineCountJSON(pages)
-    cmp_url = host_urlgen(SLMHOST, [pages,'?$format=json'])
-    cmpuri = genurilistJSON(cmp_url, cmpcnt)
-    urls = url_reap(pages, cmpuri)
-    comps = iterpagesJSONFutures(urls,pages)
+def u_for_servicenow(df):
+    user_list = []
+    for user in df[['FullName','Username','Email','PhoneNumber']]:
+        pass
 
-    # time_stamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
-    comps.to_pickle('SnowData/'+str(pages)+'.pickle')
 
-    # comps_static = pd.read_pickle('SnowData/computers.pickle')
-    # print(len(comps_static))
-    # computer_staging_for_servicenow(comps)
+
+
 
 def computer_staging_for_servicenow(dframe):
     record_list = []
@@ -324,7 +334,7 @@ def computer_staging_for_servicenow(dframe):
                      'Domain','IsVirtual','Model','MostFrequentUser','OperatingSystemServicePack', 'Applications']].itertuples():
         record_dictionary = {}
 
-        optical_drive_dict = {}
+
 
         hostname = computer[1]
         manufacturer = computer[2]
@@ -348,8 +358,7 @@ def computer_staging_for_servicenow(dframe):
         total_disk_space = (computer[5])['TotalDiskSpaceMb']
         logical_disks = (computer[5])['LogicalDisks']
         network_adapters = (computer[5])['NetworkAdapters']
-
-
+        optical_drives = (computer[5])['OpticalDrives']
 
         try:
             for app in applications.values:
@@ -357,8 +366,10 @@ def computer_staging_for_servicenow(dframe):
                 software_instance_dict['software'] = app[0]
                 software_instance_dict['name'] = app[1]
                 software_instance_dict['installed_on'] = hostname
+                software_unfiltered_list.append((app[0],app[1]))
                 software_instance_list.append(software_instance_dict)
         except Exception as e:
+            print(hostname)
             print('Incomplete Application Data')
             print(e)
 
@@ -370,7 +381,7 @@ def computer_staging_for_servicenow(dframe):
                 logical_disk_dict['computer'] = hostname
                 logical_disk_list.append(logical_disk_dict)
         except Exception as e:
-            print('Logical Disk Info')
+            print('Logical Disk Info Incomplete')
             print(e)
 
         try:
@@ -378,10 +389,25 @@ def computer_staging_for_servicenow(dframe):
                 network_adapter_dict = {}
                 network_adapter_dict['name'] = netad['Name']
                 network_adapter_dict['ip_address'] = netad['IpAddress']
-                network_adapter_dict['mac_address'] = netad['']
+                network_adapter_dict['mac_address'] = netad['MacAddress']
+                network_adapter_dict['cmdb_ci'] = hostname
+                network_adapter_list.append(network_adapter_dict)
         except Exception as e:
-            print('Logical Disk Info')
+            print('Network Adapter Info Incomplete')
             print(e)
+
+        try:
+            for opt_drive in optical_drives:
+                optical_drive_dict = {}
+                optical_drive_dict['name'] = opt_drive['Name']
+                optical_drive_dict['drive_type'] = opt_drive['Type']
+                optical_drive_dict['computer'] = hostname
+                optical_drive_list.append(optical_drive_dict)
+
+        except Exception as e:
+            print('Optical Drive Info Incomplete')
+            print(e)
+
 
 
 
@@ -406,39 +432,86 @@ def computer_staging_for_servicenow(dframe):
         record_dictionary['cpu_name'] = processor_type
         record_dictionary['disk_space'] = total_disk_space
         record_list.append(record_dictionary)
-    data_json = JS.dumps({"records": record_list})
-    json_pickle_dump = open('jsondump.pickle','wb')
-    pickle.dump(data_json, json_pickle_dump)
-    json_pickle_dump.close()
-    post_to_servicenow_jsonv2(data_json)
+
+    #Dumpt Computers
+    computers_data_json = JS.dumps({"records": record_list})
+    logical_disk_data_json = JS.dumps({"records": logical_disk_list})
+    optical_drive_data_json = JS.dumps({"records": optical_drive_list})
+    network_adapter_data_json = JS.dumps({"records": network_adapter_list})
+    software_instance_data_json = JS.dumps({"records": software_instance_list})
+
+
+
+
+    print("Applications:", len(software_list))
+
+    computers_tup = (computers_data_json, 'x_snsab_snow_cmdb_computerstaging')
+    log_disk_tup = (logical_disk_data_json, 'x_snsab_snow_cmdb_diskstaging')
+    net_ad_tup = (network_adapter_data_json, 'x_snsab_snow_cmdb_networkadapterstaging')
+    soft_inst_tup = (software_instance_data_json, 'x_snsab_snow_cmdb_softwareinstancestagin')
+
+    assets_list = [('x_snsab_snow_cmdb_computerstaging',record_list),\
+                   ('x_snsab_snow_cmdb_diskstaging', logical_disk_list),\
+                   ('x_snsab_snow_cmdb_networkadapterstaging', network_adapter_list),\
+                   ('x_snsab_snow_cmdb_softwareinstancestagin', software_instance_list)]
+
+    concurrent_assets_list = gen_json_post_list(assets_list)
+    #
+    # with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+    #
+    #     future_to_jsonv2post = {executor.submit(post_to_servicenow_jsonv2, asset): asset for asset in concurrent_assets_list}
+    #     for future in concurrent.futures.as_completed(future_to_jsonv2post):
+    #         xml = future_to_jsonv2post[future]
+    #         try:
+    #             data = future.result()
+    #             print("posted successfully")
+    #         except Exception as exc:
+    #             # print(url)
+    #             print(exc)
+    #         else:
+    #             print('POSTED')
+
+
+def gen_json_post_list(asset_list_tupples):
+    futures_list = []
+    for asset_tupple in asset_list_tupples:
+        chunked_list = [(asset_tupple[1])[i:i+400] for i in range(0, len(asset_tupple[1]), 400)]
+        for chunk in chunked_list:
+            json_dump_chunk = JS.dumps({"records":chunk})
+            json_tupple = (json_dump_chunk, str(asset_tupple[0]))
+            futures_list.append(json_tupple)
+
+    return futures_list
+
+
 
 
 # Post to Service_Now with JSONv2 Web Services
 def post_to_servicenow_jsonv2(json_records):
 
-    # Set the request parameters
-    url = 'https://'+SNINST+'.service-now.com/api/now/table/u_snow_computers'
-    
-    # Eg. User name="admin", Password="admin" for this code sample.
-    user = 'admin'
-    pwd = 'Password'
-    
-    # Set proper headers    
-    # Do the HTTP request
-
     # ut = 'https://' + SNINST + '.service-now.com/u_test_snow_computers?JSONv2&sysparm_action=insertMultiple'
-    ut = 'https://'+SNINST+'.service-now.com/x_snsab_snow_cmdb_computerstaging.do?JSONv2&sysparm_action=insertMultiple'
-    response = SNSESSION.post(ut,data=json_records)
-    print('Posting Computer:')
+    ut = 'https://'+SNINST+'.service-now.com/'+json_records[1]+'.do?JSONv2&sysparm_action=insertMultiple'
+    print(ut)
+    response = requests.post(ut,data=json_records[0], auth=SNAUTH)
+    print('Posting '+json_records[1]+':')
 
+    f = open('debug.txt', 'w')
+    f.write(json_records[0])
+    g = open('response.txt','wb')
+    g.write(response.content)
     # Check for HTTP codes other than 200
     if response.status_code != 200: 
         print('Error')
         print(response.content)
         pass   
-    
-    
+    f.close()
+    g.close()
+
 # This is the main function
 def main():
+    s = time.time()
     test_all_items_futures('computers')
-main()
+    print('EXECUTION TIME: ', str(time.time()-s))
+
+if __name__ == '__main__':
+    main()

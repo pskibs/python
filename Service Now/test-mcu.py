@@ -1,7 +1,7 @@
 import requests
 import pickle
 import pandas as pd
-
+import json
 ts = requests.session()
 
 ts.auth = ('apiuser', 'Snow1951!')
@@ -32,4 +32,24 @@ cdf_id = list(cdf['Id'])
 
 failed = list(filter(lambda x: x not in cdf_id, idl))
 print(failed)
+
+ss = requests.session()
+ss.auth = ('admin','Snow2016!')
+ss.headers = {"Content-Type":"application/json","Accept":"application/json"}
+
+data_d = {"software": "USBDLM 4", "installed_on": "COMPUTER1185", "name": "Uwe Sieber"}
+data_j = json.dumps(data_d)
+# ut = 'https://' + SNINST + '.service-now.com/u_test_snow_computers?JSONv2&sysparm_action=insertMultiple'
+ut = 'https://' + 'dev16641' + '.service-now.com/' + 'x_snsab_snow_cmdb_softwareinstancestagin' + '.do?JSONv2&sysparm_action=insert'
+print(ut)
+response = ss.post(ut, data=data_j)
+print('Posting ' + 'Software Data' + ':')
+
+print(response.content)
+
+# Check for HTTP codes other than 200
+if response.status_code != 200:
+    print('Error')
+    print(response.content)
+    pass
 
