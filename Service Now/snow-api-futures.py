@@ -165,17 +165,16 @@ def get_basic_info(url, info_list):
     try:
 
         temp = reqBodyJSON(url)
-        for x in temp[0]:
-            print(x['Body'])
-        print(pd.DataFrame(series_list))
+        x = (pd.DataFrame(temp)['Body'])
+        df = (pd.DataFrame(list(x.values)))
+
         # return temp
+        return df
 
 
     except Exception as e:
         print(url)
         print("BASIC INFO ERROR:", e)
-
-
 
 
 
@@ -283,10 +282,10 @@ def iterpagesJSONFutures(url_list, pages):
                 else:
                     pass
         return pd.DataFrame(series_list)
-    elif pages == 'users':
+    elif pages == 'users' or pages == 'applications':
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
 
-            future_to_url = {executor.submit(get_basic_info, url, ['FullName', 'Username', 'Email', 'PhoneNumber']):\
+            future_to_url = {executor.submit(get_basic_info, url, []):\
                                  url for url in url_list}
             for future in concurrent.futures.as_completed(future_to_url):
                 url = future_to_url[future]
@@ -299,25 +298,8 @@ def iterpagesJSONFutures(url_list, pages):
                     print('CONCURRENT ERROR:', exc)
                 else:
                     pass
-        return pd.DataFrame(series_list)
-    elif pages == 'applications':
-        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
 
-            future_to_url = {executor.submit(get_basic_info, url, ['Name', 'ManufacturerName']):\
-                                 url for url in url_list}
-            for future in concurrent.futures.as_completed(future_to_url):
-                url = future_to_url[future]
-                try:
-                    data = future.result()
-
-                    series_list.append(data)
-                except Exception as exc:
-                    print(url)
-                    print('CONCURRENT ERROR:', exc)
-                else:
-                    pass
-        return pd.DataFrame(series_list)
-
+        return series_list
     else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
     
@@ -365,8 +347,11 @@ def get_items_async(pages):
         basic_urls = gen_basic_page_urls(base_url, basic_pages, pages)
         items = iterpagesJSONFutures(basic_urls, pages)
 
-        items.to_pickle('SnowData/'+str(pages)+'.pickle')
-        return items
+        df = pd.concat(items, ignore_index=True)
+
+        df.to_pickle('SnowData/'+str(pages)+'.pickle')
+
+        return df
     else:
 
         cmpcnt = getInlineCountJSON(pages)
@@ -374,7 +359,7 @@ def get_items_async(pages):
         cmp_url = host_urlgen(SLMHOST, [pages,'?$format=json'])
         cmpuri = genurilistJSON(cmp_url, cmpcnt)
         urls = url_reap(pages, cmpuri)
-        print(urls)
+        # print(urls)
         comps = iterpagesJSONFutures(urls,pages)
 
         # time_stamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
@@ -384,16 +369,44 @@ def get_items_async(pages):
 
 
 def u_staging_for_servicenow(user_df):
-    user_list = []
-    for user in user_df[['FullName','Username','Email','PhoneNumber']]:
-        pass
+    users_list = []
+
+    for user in (user_df[['FullName', 'Username', 'Email', 'PhoneNumber']]).itertuples():
+        user_dict = {}
+
+        full_name = str(user[1]).split()
+        first_name = full_name[0]
+        last_name = " ".join(full_name[1:])
+
+        username = user[2]
+        email = user[3]
+        phone_number = user[4]
+
+        user_dict['first_name'] = first_name
+        user_dict['last_name'] = last_name
+        user_dict['email'] = email
+        user_dict['user_name'] = username
+        user_dict['phone'] = phone_number
+        users_list.append(user_dict)
+
+    users_tup = ('x_snsab_snow_cmdb_userstaging', users_list)
+    return users_tup
+
 
 
 def a_staging_for_servicenow(application_df):
-    user_list = []
-    for application in application_df[['FullName','Username','Email','PhoneNumber']]:
-        pass
+    software_list = []
+    for application in (application_df[['Name', 'ManufacturerName']]).itertuples():
+        app_dict = {}
+        app_name = application[1]
+        manufacturer_name = application[2]
 
+        app_dict['software'] = app_name
+        app_dict['name'] = manufacturer_name
+        software_list.append(app_dict)
+
+    software_tup = ('x_snsab_snow_cmdb_softwarestaging', software_list)
+    return software_tup
 
 
 def computer_staging_for_servicenow(dframe):
@@ -506,31 +519,30 @@ def computer_staging_for_servicenow(dframe):
         record_dictionary['disk_space'] = total_disk_space
         record_list.append(record_dictionary)
 
-    #Dumpt Computers
-    computers_data_json = JS.dumps({"records": record_list})
-    logical_disk_data_json = JS.dumps({"records": logical_disk_list})
-    optical_drive_data_json = JS.dumps({"records": optical_drive_list})
-    network_adapter_data_json = JS.dumps({"records": network_adapter_list})
-    software_instance_data_json = JS.dumps({"records": software_instance_list})
+    # #Dumpt Computers
+    # computers_data_json = JS.dumps({"records": record_list})
+    # logical_disk_data_json = JS.dumps({"records": logical_disk_list})
+    # optical_drive_data_json = JS.dumps({"records": optical_drive_list})
+    # network_adapter_data_json = JS.dumps({"records": network_adapter_list})
+    # software_instance_data_json = JS.dumps({"records": software_instance_list})
 
 
 
 
     # print("Applications:", len(software_list))
-
-    computers_tup = (computers_data_json, 'x_snsab_snow_cmdb_computerstaging')
-    log_disk_tup = (logical_disk_data_json, 'x_snsab_snow_cmdb_diskstaging')
-    net_ad_tup = (network_adapter_data_json, 'x_snsab_snow_cmdb_networkadapterstaging')
-    soft_inst_tup = (software_instance_data_json, 'x_snsab_snow_cmdb_softwareinstancestagin')
+    #
+    # computers_tup = (computers_data_json, 'x_snsab_snow_cmdb_computerstaging')
+    # log_disk_tup = (logical_disk_data_json, 'x_snsab_snow_cmdb_diskstaging')
+    # net_ad_tup = (network_adapter_data_json, 'x_snsab_snow_cmdb_networkadapterstaging')
+    # soft_inst_tup = (software_instance_data_json, 'x_snsab_snow_cmdb_softwareinstancestagin')
 
     assets_list = [('x_snsab_snow_cmdb_computerstaging',record_list),\
-                   ('x_snsab_snow_cmdb_diskstaging', logical_disk_list),\
+                   ('x_snsab_snow_cmdb_diskstaging', logical_disk_list), \
+                   ('x_snsab_snow_cmdb_diskstaging', optical_drive_list), \
                    ('x_snsab_snow_cmdb_networkadapterstaging', network_adapter_list),\
                    ('x_snsab_snow_cmdb_softwareinstancestagin', software_instance_list)]
 
-    concurrent_assets_list = gen_json_post_list(assets_list)
-
-    async_post_json_chuncks(concurrent_assets_list)
+    return assets_list
 
 
 def async_post_json_chuncks(concurrent_assets_list):
@@ -561,7 +573,6 @@ def gen_json_post_list(asset_list_tupples):
     return futures_list
 
 
-
 # Post to Service_Now with JSONv2 Web Services
 def post_to_servicenow_jsonv2(json_records):
 
@@ -583,18 +594,44 @@ def post_to_servicenow_jsonv2(json_records):
     g.close()
 
 
+def upload_ordered_assets_list( users, apps, computers):
+    users_tupple = u_staging_for_servicenow(users)
+    apps_tupple = a_staging_for_servicenow(apps)
+    computer_tupple_list = computer_staging_for_servicenow(computers)
+
+    # concurrent_assets_list = gen_json_post_list(assets_list)
+    #
+    # async_post_json_chuncks(concurrent_assets_list)
+
+    users_chunked = gen_json_post_list([users_tupple])
+    apps_chunked = gen_json_post_list([apps_tupple])
+    computers_chunked = gen_json_post_list(computer_tupple_list)
+
+    print("Posting Users")
+    async_post_json_chuncks(users_chunked)
+
+    print("Posting Applications")
+    async_post_json_chuncks(apps_chunked)
+    async_post_json_chuncks(computers_chunked)
+
 def test_all_items_futures(pages):
-    st= time.time()
     #
     # # Make directory if one doesnt exist for SnowData
     check_for_snowdata_folder()
     #
-    # comps_static = get_items_async('computers')
-    # users_static = get_items_async('users')
-    # print(users_static.head(5))
-    # apps_static = get_items_async('applications')
-    comps_static = pd.read_pickle('SnowData/computers.pickle')
-    computer_staging_for_servicenow(comps_static)
+
+    users_static = get_items_async('users')
+
+    apps_static = get_items_async('applications')
+
+    comps_static = get_items_async('computers')
+
+    upload_ordered_assets_list(users_static, apps_static, comps_static)
+
+
+
+
+
 
 # This is the main function
 def main():
