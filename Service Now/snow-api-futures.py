@@ -529,8 +529,6 @@ def computer_staging_for_servicenow(dframe):
                    ('x_snsab_snow_cmdb_softwareinstancestagin', software_instance_list)]
 
     concurrent_assets_list = gen_json_post_list(assets_list)
-    # for asset in concurrent_assets_list:
-    #     print(asset)
 
     async_post_json_chuncks(concurrent_assets_list)
 
@@ -569,7 +567,9 @@ def post_to_servicenow_jsonv2(json_records):
 
     # ut = 'https://' + SNINST + '.service-now.com/u_test_snow_computers?JSONv2&sysparm_action=insertMultiple'
     ut = 'https://'+SNINST+'.service-now.com/'+json_records[1]+'.do?JSONv2&sysparm_action=insertMultiple'
+    print(ut)
     response = requests.post(ut, data=json_records[0], auth=SNAUTH)
+
     f = open('debug.txt', 'w')
     f.write(json_records[0])
     g = open('response.txt','wb')
