@@ -160,7 +160,24 @@ def getFInlineCountJSON(urlinput):
     return int(pls["Value"].values[0])
 
 
-    
+def get_basic_info(url, info_list):
+    series_list = []
+    try:
+
+        temp = reqBodyJSON(url)
+        for x in temp[0]:
+            print(x['Body'])
+        print(pd.DataFrame(series_list))
+        # return temp
+
+
+    except Exception as e:
+        print(url)
+        print("BASIC INFO ERROR:", e)
+
+
+
+
 
 def getAPPitemsJSON(url):
     try:
@@ -208,11 +225,11 @@ def host_urlgen(hostname, params):
 '''
 JSON STUFF
 '''
+
 def reqJSON(uri):
     requestJSON = SLMSESSION.get(uri)
     data_dict = requestJSON.json()
     return data_dict
-
 
 
 def reqBodyJSON(uri):
@@ -221,6 +238,7 @@ def reqBodyJSON(uri):
     requestJSON = SLMSESSION.get(uri)
     data_dict = requestJSON.json()
     return data_dict['Body']
+
 
 def reqComputerBodyJSON(uri):
     start_time = time.time()
@@ -265,6 +283,41 @@ def iterpagesJSONFutures(url_list, pages):
                 else:
                     pass
         return pd.DataFrame(series_list)
+    elif pages == 'users':
+        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+
+            future_to_url = {executor.submit(get_basic_info, url, ['FullName', 'Username', 'Email', 'PhoneNumber']):\
+                                 url for url in url_list}
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    data = future.result()
+
+                    series_list.append(data)
+                except Exception as exc:
+                    print(url)
+                    print('CONCURRENT ERROR:', exc)
+                else:
+                    pass
+        return pd.DataFrame(series_list)
+    elif pages == 'applications':
+        with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
+
+            future_to_url = {executor.submit(get_basic_info, url, ['Name', 'ManufacturerName']):\
+                                 url for url in url_list}
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    data = future.result()
+
+                    series_list.append(data)
+                except Exception as exc:
+                    print(url)
+                    print('CONCURRENT ERROR:', exc)
+                else:
+                    pass
+        return pd.DataFrame(series_list)
+
     else:
         with concurrent.futures.ThreadPoolExecutor(max_workers=THREADS) as executor:
     
@@ -283,48 +336,69 @@ def iterpagesJSONFutures(url_list, pages):
                     print('comment')
         return pd.DataFrame(series_list)
 
+
 def url_reap(pages, item_list):
     newrl = str(HT+SLMHOST+'/api/customers/'+CID+'/'+pages)
     return [str(newrl+'/'+str(nuri)+'/?$format=json') for nuri in item_list]
+
 
 def check_for_snowdata_folder():
     directory = "SnowData"
     if not os.path.exists(directory):
         os.makedirs(directory)
-    
-    
-def test_all_items_futures(pages):
-    # st= time.time()
-    #
-    # # Make directory if one doesnt exist for SnowData
-    # check_for_snowdata_folder()
-    #
-    # # Run Functions to recieve Snow Api Data
-    # cmpcnt = getInlineCountJSON(pages)
-    # cmp_url = host_urlgen(SLMHOST, [pages,'?$format=json'])
-    # cmpuri = genurilistJSON(cmp_url, cmpcnt)
-    # urls = url_reap(pages, cmpuri)
-    # comps = iterpagesJSONFutures(urls,pages)
-    #
-    # # time_stamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    #
-    # comps.to_pickle('SnowData/'+str(pages)+'.pickle')
 
-    comps_static = pd.read_pickle('SnowData/computers.pickle')
-    print(len(comps_static))
-    computer_staging_for_servicenow(comps_static)
+def gen_basic_page_urls(base_url, page_numbers, pages):
+    pages_list = [base_url]
+    for page in page_numbers[1:]:
+        url = str(HT + SLMHOST + '/api/customers/' + CID + '/'+ pages+'/?$format=json&$skip='+str(page))
+        pages_list.append(url)
+    return pages_list
 
-def u_for_servicenow(df):
+
+def get_items_async(pages):
+    # Run Functions to recieve Snow Api Data
+    if pages == 'users' or pages == 'applications':
+        in_line_count = getInlineCountJSON(pages)
+        base_url = host_urlgen(SLMHOST, [pages,'?$format=json'])
+        print(in_line_count)
+        basic_pages = [page_skip for page_skip in range(0,(in_line_count+100),100)]
+        basic_urls = gen_basic_page_urls(base_url, basic_pages, pages)
+        items = iterpagesJSONFutures(basic_urls, pages)
+
+        items.to_pickle('SnowData/'+str(pages)+'.pickle')
+        return items
+    else:
+
+        cmpcnt = getInlineCountJSON(pages)
+        print("INLINE COUNT FOR {} IS {}".format(pages,cmpcnt))
+        cmp_url = host_urlgen(SLMHOST, [pages,'?$format=json'])
+        cmpuri = genurilistJSON(cmp_url, cmpcnt)
+        urls = url_reap(pages, cmpuri)
+        print(urls)
+        comps = iterpagesJSONFutures(urls,pages)
+
+        # time_stamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
+        comps.to_pickle('SnowData/'+str(pages)+'.pickle')
+        return comps
+
+
+def u_staging_for_servicenow(user_df):
     user_list = []
-    for user in df[['FullName','Username','Email','PhoneNumber']]:
+    for user in user_df[['FullName','Username','Email','PhoneNumber']]:
+        pass
+
+
+def a_staging_for_servicenow(application_df):
+    user_list = []
+    for application in application_df[['FullName','Username','Email','PhoneNumber']]:
         pass
 
 
 
-
-
-
 def computer_staging_for_servicenow(dframe):
+
+    print("$$$$ STARTING STAGING $$$$$$")
     record_list = []
     software_instance_list = []
     logical_disk_list = []
@@ -366,7 +440,6 @@ def computer_staging_for_servicenow(dframe):
                 software_instance_dict['software'] = app[0]
                 software_instance_dict['name'] = app[1]
                 software_instance_dict['installed_on'] = hostname
-                software_unfiltered_list.append((app[0],app[1]))
                 software_instance_list.append(software_instance_dict)
         except Exception as e:
             print(hostname)
@@ -443,7 +516,7 @@ def computer_staging_for_servicenow(dframe):
 
 
 
-    print("Applications:", len(software_list))
+    # print("Applications:", len(software_list))
 
     computers_tup = (computers_data_json, 'x_snsab_snow_cmdb_computerstaging')
     log_disk_tup = (logical_disk_data_json, 'x_snsab_snow_cmdb_diskstaging')
@@ -456,20 +529,26 @@ def computer_staging_for_servicenow(dframe):
                    ('x_snsab_snow_cmdb_softwareinstancestagin', software_instance_list)]
 
     concurrent_assets_list = gen_json_post_list(assets_list)
-    #
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
-    #
-    #     future_to_jsonv2post = {executor.submit(post_to_servicenow_jsonv2, asset): asset for asset in concurrent_assets_list}
-    #     for future in concurrent.futures.as_completed(future_to_jsonv2post):
-    #         xml = future_to_jsonv2post[future]
-    #         try:
-    #             data = future.result()
-    #             print("posted successfully")
-    #         except Exception as exc:
-    #             # print(url)
-    #             print(exc)
-    #         else:
-    #             print('POSTED')
+    # for asset in concurrent_assets_list:
+    #     print(asset)
+
+    async_post_json_chuncks(concurrent_assets_list)
+
+
+def async_post_json_chuncks(concurrent_assets_list):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
+        future_to_jsonv2post = {executor.submit(post_to_servicenow_jsonv2, asset): asset for asset in concurrent_assets_list}
+        for future in concurrent.futures.as_completed(future_to_jsonv2post):
+            xml = future_to_jsonv2post[future]
+            try:
+                data = future.result()
+                print("posted successfully")
+            except Exception as exc:
+                # print(url)
+                print("FUCK")
+                print(exc)
+            else:
+                print('POSTED')
 
 
 def gen_json_post_list(asset_list_tupples):
@@ -485,16 +564,12 @@ def gen_json_post_list(asset_list_tupples):
 
 
 
-
 # Post to Service_Now with JSONv2 Web Services
 def post_to_servicenow_jsonv2(json_records):
 
     # ut = 'https://' + SNINST + '.service-now.com/u_test_snow_computers?JSONv2&sysparm_action=insertMultiple'
     ut = 'https://'+SNINST+'.service-now.com/'+json_records[1]+'.do?JSONv2&sysparm_action=insertMultiple'
-    print(ut)
-    response = requests.post(ut,data=json_records[0], auth=SNAUTH)
-    print('Posting '+json_records[1]+':')
-
+    response = requests.post(ut, data=json_records[0], auth=SNAUTH)
     f = open('debug.txt', 'w')
     f.write(json_records[0])
     g = open('response.txt','wb')
@@ -506,6 +581,20 @@ def post_to_servicenow_jsonv2(json_records):
         pass   
     f.close()
     g.close()
+
+
+def test_all_items_futures(pages):
+    st= time.time()
+    #
+    # # Make directory if one doesnt exist for SnowData
+    check_for_snowdata_folder()
+    #
+    # comps_static = get_items_async('computers')
+    # users_static = get_items_async('users')
+    # print(users_static.head(5))
+    # apps_static = get_items_async('applications')
+    comps_static = pd.read_pickle('SnowData/computers.pickle')
+    computer_staging_for_servicenow(comps_static)
 
 # This is the main function
 def main():

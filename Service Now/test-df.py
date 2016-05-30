@@ -14,6 +14,7 @@ def ps():
 
 df = pd.read_pickle('SnowData/computers.pickle')
 hw = df.head(1)
+print(df['Applications'])
 print(hw['MostFrequentUser'])
 
 # for h in hw[0].items():
