@@ -22,57 +22,57 @@ print(hw['MostFrequentUser'])
 
 data = df[['Name','Manufacturer','OperatingSystem','IpAddresses', 'Hardware', 'OperatingSystemServicePack','Applications']]
 
-for computer in data[:5].itertuples():
+for computer in data[:].itertuples():
 
-    print(computer[6])
+    # print(computer[6])
 
-    ps()
-    #BIOS SN
-    bios_serial_number = (computer[5])['BiosSerialNumber']
-    print(bios_serial_number)
-    ps()
-
-    # Cores Per Processor
-    cores_per_processor = (computer[5])['CoresPerProcessor']
-    print(cores_per_processor)
-    ps()
-
-    # Number of Processors
-    number_of_processors = (computer[5])['NumberOfProcessors']
-    print(number_of_processors)
-    ps()
-
-    # Physical Memory MB
-    physical_memory = (computer[5])['PhysicalMemoryMb']
-    print(physical_memory)
-    ps()
-
-    # Processor Type
-    processor_type = (computer[5])['ProcessorType']
-    print(processor_type)
-    ps()
-
-    # Total Disk Space MB
-    total_disk_space = (computer[5])['TotalDiskSpaceMb']
-    print(total_disk_space)
-    ps()
+    # ps()
+    # #BIOS SN
+    # bios_serial_number = (computer[5])['BiosSerialNumber']
+    # # print(bios_serial_number)
+    # # ps()
+    #
+    # # Cores Per Processor
+    # cores_per_processor = (computer[5])['CoresPerProcessor']
+    # # print(cores_per_processor)
+    # # ps()
+    #
+    # # Number of Processors
+    # number_of_processors = (computer[5])['NumberOfProcessors']
+    # # print(number_of_processors)
+    # # ps()
+    #
+    # # Physical Memory MB
+    # physical_memory = (computer[5])['PhysicalMemoryMb']
+    # print(physical_memory)
+    # ps()
+    #
+    # # Processor Type
+    # processor_type = (computer[5])['ProcessorType']
+    # print(processor_type)
+    # ps()
+    #
+    # # Total Disk Space MB
+    # total_disk_space = (computer[5])['TotalDiskSpaceMb']
+    # print(total_disk_space)
+    # ps()
 
     # Logical Disks
     logical_disks = (computer[5])['LogicalDisks']
     for disk in logical_disks:
-        print(disk['Name'])
-    print(logical_disks)
+        print(disk['Name'], disk['VolumeName'])
+    # print(logical_disks)
     ps()
-
-    # # Network Adadapters
-    network_adapters  = (computer[5])['NetworkAdapters']
-    print(network_adapters)
-    ps()
-
-    # Optical Drives
-    optical_drives = (computer[5])['OpticalDrives']
-    print(optical_drives)
-    ps()
+    #
+    # # # Network Adadapters
+    # network_adapters  = (computer[5])['NetworkAdapters']
+    # print(network_adapters)
+    # ps()
+    #
+    # # Optical Drives
+    # optical_drives = (computer[5])['OpticalDrives']
+    # print(optical_drives)
+    # ps()
 
     # # Applications
     # applications = (computer[7])

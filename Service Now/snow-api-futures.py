@@ -11,6 +11,8 @@ __author__ = 'Parker Skiba'
 import requests
 import pandas as pd
 import pickle
+import decimal
+
 
 from datetime import date, datetime
 import multiprocessing as mp
@@ -370,6 +372,8 @@ def get_items_async(pages):
 
 def u_staging_for_servicenow(user_df):
     users_list = []
+    user_df['Email'] = ''
+    user_df['PhoneNumber'] = ''
 
     for user in (user_df[['FullName', 'Username', 'Email', 'PhoneNumber']]).itertuples():
         user_dict = {}
@@ -620,13 +624,18 @@ def test_all_items_futures(pages):
     check_for_snowdata_folder()
     #
 
-    users_static = get_items_async('users')
+    # users_static = get_items_async('users')
+    #
+    # apps_static = get_items_async('applications')
+    #
+    # comps_static = get_items_async('computers')
 
-    apps_static = get_items_async('applications')
+    users_static = pd.read_pickle('SnowData/users.pickle')
+    apps_static = pd.read_pickle('SnowData/applications.pickle')
+    comps_static = pd.read_pickle('SnowData/computers.pickle')
 
-    comps_static = get_items_async('computers')
 
-    upload_ordered_assets_list(users_static, apps_static, comps_static)
+    # upload_ordered_assets_list(users_static, apps_static, comps_static)
 
 
 
