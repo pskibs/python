@@ -7,7 +7,7 @@ Created on Sun Mar 20 11:25:01 2016
 import pandas as pd
 from collections import OrderedDict
 from lxml import etree as et
-import concurrent.futures
+import concurrent.futures, time
 
 import os
 
@@ -30,12 +30,15 @@ class SnowXML(IterMixin):
     def setIsOptional(self, isOptional):
         self.__isOptional = isOptional
 
-
+zorro = lambda y: "0"+str(y) if int(y)<10 else str(y)
 class Client(SnowXML):
     # reusableValues
     na = '(n/a)'
     ddate = '1900-01-01T12:00:00'
     tdate = '2016-03-09T11:04:19'
+    x = time.localtime()
+
+    dt = zorro(x[0]) + "-" + zorro(x[1]) + "-" + zorro(x[2]) + "T" + zorro(x[3]) + ":" + zorro(x[4]) + ":" + zorro(x[5])
 
     def __init__(self, hostname):
         self.setIsOptional(False)
